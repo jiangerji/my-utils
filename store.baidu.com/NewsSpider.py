@@ -49,6 +49,9 @@ class NewsInfo:
 
         return "\n".join(result)
 
+    def get_id(self):
+        return self.id
+
     def toTuple(self):
         return (
             self.id, 
@@ -63,6 +66,14 @@ class NewsInfo:
             self.comment_count,
             self.like_count,
             self.weights)
+
+    def downloadContent(self):
+        # 下载thumbnail
+
+        # 下载网页
+
+        # 下载网页中的
+        pass
 
 def parseNewsList(content):
     global index
@@ -86,18 +97,42 @@ def parseNewsList(content):
     return result
 
 from utils import *
-def news_spider():
-    # conn = httplib.HTTPConnection("54.64.105.44")
-    # # conn.request('get', '/news/api/list?pn=1&limit=10&_='+str(int(time.time()*100)))
-    # # http://store.baidu.com/product/api/recommendList?cat_id=0&orderBy=hot&order=desc&pn=1&limit=36
-    # conn.request('get', "/wanketv/live/games")
-    # response = conn.getresponse()
 
-    # print response.status
-    # if response.status == 200:
-    #     # parseNewsList(response.read())
-    #     print response.read()
-    # conn.close()
+from sgmllib import SGMLParser  
+class ListName(SGMLParser):
+    # 解析网页的类 
+    def __init__(self):  
+        SGMLParser.__init__(self)
+        self.is_div = ""
+        self.name = []
+    def start_div(self, attrs):
+        print attrs
+        self.is_div = True
+
+    def end_div(self):  
+        self.is_div = False
+
+    def handle_data(self, text):
+        if self.is_div == 1:
+            self.name.append(text)
+
+    def printName(self):
+        print len(self.name)
+        print self.name
+
+def get_news_content(news_id):
+    # http://store.baidu.com/news/3671.html
+    # url = "http://store.baidu.com/news/%d.html"%news_id
+    # requestUrlContent(url, ".cache"+os.path.sep+"html", "%d.html"%news_id)
+
+    content = open(".cache"+os.path.sep+"html"+os.path.sep+"%d.html"%news_id).read()
+    # print content
+    content_parser = ListName()
+    content_parser.feed(content)
+    content_parser.printName()
+
+
+def news_spider():
     quota = 100
 
     db = sqlite3.connect("store.sqlite")
@@ -138,5 +173,6 @@ def news_spider():
     db.close()
 
 if __name__ == "__main__":
-    news_spider()
+    # news_spider()
+    get_news_content(3671)
     print str(int(time.time()*100))
