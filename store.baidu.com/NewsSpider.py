@@ -97,52 +97,52 @@ def parseNewsList(content):
     return result
 
 from utils import *
-
-from sgmllib import SGMLParser  
-class ListName(SGMLParser):
-    # 解析网页的类 
-    def __init__(self):  
-        SGMLParser.__init__(self)
-        self.is_div = ""
-        self.name = []
-    def start_div(self, attrs):
-        print attrs
-        self.is_div = True
-
-    def end_div(self):  
-        self.is_div = False
-
-    def handle_data(self, text):
-        if self.is_div == 1:
-            self.name.append(text)
-
-    def printName(self):
-        print len(self.name)
-        print self.name
+import re
 
 def get_news_content(news_id):
     # http://store.baidu.com/news/3671.html
-    # url = "http://store.baidu.com/news/%d.html"%news_id
-    # requestUrlContent(url, ".cache"+os.path.sep+"html", "%d.html"%news_id)
+    url = "http://store.baidu.com/news/%s.html"%news_id
+    requestUrlContent(url, "cache"+os.path.sep+"html", "%s.html"%news_id)
 
-    content = open(".cache"+os.path.sep+"html"+os.path.sep+"%d.html"%news_id).read()
-    # print content
-    content_parser = ListName()
-    content_parser.feed(content)
-    content_parser.printName()
+    content = open("cache"+os.path.sep+"html"+os.path.sep+"%s.html"%news_id, 'rb').read()
+    # 获取summary
+    summary_pattern = r'<div class=\"d-summary\">[\s\S]*?</div>'
+    pattern = re.compile(summary_pattern)
+
+    result = ""
+
+    match = re.search(pattern, content)
+    if match:
+        result = match.group()
+
+    # 获取content
+    content_pattern = r'<div class="d-artical-content" id="sourceContent">[\s\S]*?</div>'
+    pattern = re.compile(content_pattern)
+
+    match = re.search(pattern, content)
+    if match:
+        result += match.group()
+
+    return result
 
 
 def news_spider():
     quota = 100
 
     db = sqlite3.connect("store.sqlite")
+    db.text_factory = lambda x: unicode(x, 'utf-8', 'ignore')
 
     try:
         CREATE_COMMAND = 'CREATE  TABLE  IF NOT EXISTS "news" ("id" INTEGER PRIMARY KEY  NOT NULL  UNIQUE , "create_time" TEXT, "title" TEXT, "excerpt" TEXT, "status" INTEGER, "comment_status" INTEGER, "thumbnails" TEXT, "source" TEXT, "cat_id" INTEGER, "comment_count" INTEGER, "like_count" INTEGER, "weights" INTEGER)'
         db.execute(CREATE_COMMAND)
 
+        CREATE_NEWS_CONTENT_TABEL = 'CREATE TABLE IF NOT EXISTS "news_content" ("id" INTEGER PRIMARY KEY  NOT NULL  UNIQUE, "content" TEXT)'
+        db.execute(CREATE_NEWS_CONTENT_TABEL)
+
         INSERT_COMMAND = "insert into news values (?,?,?,?,?,?,?,?,?,?,?,?)"
-        index = 1
+        INSERT_NEWS_CONTENT_COMMAND = "insert into news_content values (?,?)"
+
+        index = 2
         url_format = "http://store.baidu.com/news/api/list?pn=%%d&limit=%d&_=%%s"%quota
         while True:
             url = url_format%(index, str(int(time.time()*100)))
@@ -155,6 +155,13 @@ def news_spider():
                         db.execute(INSERT_COMMAND, news.toTuple())
                     except Exception, e:
                         print "insert product info exception:", e
+
+                    print "get news content", news.get_id()
+                    news_content = get_news_content(news.get_id())
+                    time.sleep(0.1)
+                    # print news_content
+                    db.execute(INSERT_NEWS_CONTENT_COMMAND, (news.get_id(), news_content))
+                    # print "insert new content"
 
                 print "handle", len(news_list)
                 if len(news_list) < quota:
@@ -172,7 +179,66 @@ def news_spider():
     db.commit()
     db.close()
 
+def re_test(news_id):
+    import re
+    # news_id = 1
+    # 将正则表达式编译成Pattern对象
+    content_pattern = r'<div class=\"d-summary\">[\s\S]*?</div>'
+    # content_pattern = r'<div.*>[\s\S]*?</div>'
+    pattern = re.compile(content_pattern)
+     
+    # 使用Pattern匹配文本，获得匹配结果，无法匹配时将返回None
+    content = 'asd<div class="d-summary">sdsd\nfadf中国</div>\nfasdf'
+    # content = open(".cache"+os.path.sep+"html"+os.path.sep+"%d.html"%news_id).read()
+    # print content
+    # # return
+
+    match = re.search(pattern, content)
+    if match:
+        print match.group()
+
+    # return
+
+    # match = pattern.match(content)
+
+
+    # if match:
+    #     # 使用Match获得分组信息·
+    #     print match.group()
+    # return
+
+    content_pattern = r'<div class="d-artical-content" id="sourceContent">[\s\S]*?</div>'
+
+    content1 = '<div class="d-artical-content" id="sourceContent">\
+<p>&nbsp; 11.10~11.14 热门单品汇总！这是特别的一周，举世瞩目的APEC大会在京城召开，也让我们体验到了&ldquo;APEC蓝&rdquo;魅力，还见证了大帝都的交通也是可以如此通畅。这周，注定是不平凡的一周：Nixie自拍飞行器成了自拍达人微博、朋友圈热门分享的神器；Withings Activite智能手表，成了最&ldquo;手表&rdquo;的智能手表，收到众多青睐；B4RM4N智能调酒杯让单身宅男也能一秒变身夜店里受人瞩目的焦点；SKULLY智能摩托车头盔，让热爱机车的人们再一次狂热起来；Fireside智能电子相框 让人们发现这个被遗忘的相框还能这样智能化.....</p></div>'
+
+    content = open(".cache"+os.path.sep+"html"+os.path.sep+"%d.html"%news_id).read()
+    # print content
+    print content.find('<div class="d-artical-content" id="sourceContent">')
+    
+    pattern = re.compile(content_pattern, re.I | re.M)
+
+    match = re.search(pattern, content)
+
+    # content = '<div class="d-artical-content" id="sourceContent">\n<p>fasf</div>'
+    # match = pattern.match(content)
+    if match:
+        print match.group()
+     
+    ### 输出 ###
+    # hello
+
 if __name__ == "__main__":
-    # news_spider()
-    get_news_content(3671)
-    print str(int(time.time()*100))
+    reload(sys)
+    sys.setdefaultencoding('utf-8')
+    news_spider()
+    # get_news_content(1)
+    # re_test(3694)
+    # fp = open("cache/html/3694.html", "rb")
+    # print fp.readline()
+    # print str(int(time.time()*100))
+
+
+
+
+

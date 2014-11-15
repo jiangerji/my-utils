@@ -7,7 +7,7 @@ def md5(source):
     result = hashlib.md5(source.encode('utf-8')).hexdigest()
     return result
 
-def requestUrlContent(url, cache_dir=".cache", filename=None):
+def requestUrlContent(url, cache_dir="cache", filename=None):
     if not os.path.isdir(cache_dir):
         os.makedirs(cache_dir)
 
