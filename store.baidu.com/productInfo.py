@@ -1,6 +1,8 @@
 #encoding=utf-8
 from __future__ import unicode_literals
 
+from DownloadManager import *
+
 class ProductInfo:
 
     def _init(self):
@@ -72,6 +74,14 @@ class ProductInfo:
         self.evaluation_count = infos.get("evaluation_count", 0)
         self.adjust_score = infos.get("adjust_score", 0)
         self.product_thumbnail = infos.get("product_thumbnail", [])
+
+    def downloadImg(self):
+        print "开始下载", self.product_name
+        if len(self.product_cover_img) > 0:
+            downloadFile(self.product_cover_img, str(self.product_id))
+
+        for i in self.product_thumbnail:
+            downloadFile(i, str(self.product_id))
 
     def toTuple(self):
         return (

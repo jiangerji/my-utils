@@ -34,6 +34,9 @@ def parseProductList(content):
 
 
 def getProductListByHot():
+    """
+    http://store.baidu.com/product/api/recommendList?cat_id=0&orderBy=hot&order=desc&pn=1&limit=36
+    """
     db = sqlite3.connect("store.sqlite")
 
     try:
@@ -41,21 +44,67 @@ def getProductListByHot():
         db.execute(CREATE_COMMAND)
 
         INSERT_COMMAND = "insert into productsInfo values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-        for i in range(1, 8):
-            fp = open(str(i), "r")
-            for i in parseProductList(fp.read()):
-                try:
-                    db.execute(INSERT_COMMAND, i.toTuple())
-                except Exception, e:
-                    print "insert product info exception:", e
-            
+        # for i in range(1, 8):
+        #     fp = open(str(i), "r")
+        #     for i in parseProductList(fp.read()):
+        #         try:
+        #             db.execute(INSERT_COMMAND, i.toTuple())
+        #         except Exception, e:
+        #             print "insert product info exception:", e
+        index = 1
+        conn = httplib.HTTPConnection("store.baidu.com")
+        while True:
+            conn.request("GET", "/product/api/recommendList?cat_id=0&orderBy=hot&order=desc&pn=%d&limit=36"%index)
+            response = conn.getresponse()
+            if response.status:
+                pl = parseProductList(response.read())
+
+                for p in pl:
+                    try:
+                        # db.execute(INSERT_COMMAND, p.toTuple())
+                        pass
+                    except Exception, e:
+                        print "insert product info exception:", e
+
+                    p.downloadImg()
+
+                if len(pl) < 36:
+                    break
+                index += 1
+                time.sleep(1)
+
     except Exception, e:
         print "create productsInfo table exception:", e
 
     db.commit()
 
-getProductListByHot()        
+# getProductListByHot()        
 
 # fp = open("1", "r")
 # for i in parseProductList(fp.read()):
 #     print i
+
+if __name__ == "__main__":
+    #http://store.baidu.com/product/api/recommendList?cat_id=0&orderBy=hot&order=desc&pn=1&limit=36
+    # conn = httplib.HTTPConnection("store.baidu.com")
+    # conn.request("GET", "/product/api/recommendList?cat_id=0&orderBy=hot&order=desc&pn=1&limit=36")
+    # r1 = conn.getresponse()
+    # print r1.status, r1.reason
+    # data1 = r1.read()
+    # print data1
+    getProductListByHot()
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
