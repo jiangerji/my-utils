@@ -99,6 +99,29 @@ def parseNewsList(content):
 from utils import *
 import re
 
+def _get_product_buy_info(content):
+    #     content = '<div class="product-side fl-left">\
+    # <div class="buy"><a href="          http://item.jd.com/1059164.html\
+    #           " class="active" onclick="_hmt.push([\'_trackEvent\', \'buy\', \'click\', \'倍轻松眼部按摩器 isee4\']);" target="_blank">去购买</a></div>\
+    # <div class="phone-type clearfix">\
+    # <div class="fl-left">支持机型：</div>\
+    # <div class="items">无</div>'
+
+    buy_url_pattern = r'<div class=\"buy\">[\s\S]*?</div>'
+    pattern = re.compile(buy_url_pattern)
+
+    buy_url = ""
+    match = re.search(pattern, content)
+    if match:
+        buy_url = match.group()
+        start_index = buy_url.index("<a") + 2
+        start_index = buy_url.index("href=", start_index) + len("href=")
+        start_index = buy_url.index('"', start_index)+1
+        end_index = buy_url.index('"', start_index)
+        buy_url = buy_url[start_index: end_index].strip()
+
+    return buy_url
+
 def get_news_content(news_id):
     # http://store.baidu.com/news/3671.html
     url = "http://store.baidu.com/news/%s.html"%news_id
@@ -109,21 +132,31 @@ def get_news_content(news_id):
     summary_pattern = r'<div class=\"d-summary\">[\s\S]*?</div>'
     pattern = re.compile(summary_pattern)
 
-    result = ""
-
+    summary = ""
     match = re.search(pattern, content)
     if match:
-        result = match.group()
+        summary = match.group()
+        summary = unicode(summary, "utf-8")
+        # print summary, summary.rindex("<")
+        summary = summary[summary.index(">")+1:summary.rindex("</div>")]
+        # print summary
 
     # 获取content
     content_pattern = r'<div class="d-artical-content" id="sourceContent">[\s\S]*?</div>'
     pattern = re.compile(content_pattern)
 
+    html_content = ""
     match = re.search(pattern, content)
     if match:
-        result += match.group()
+        html_content += match.group()
 
-    return result
+    buy_url = ""
+    try:
+        buy_url = _get_product_buy_info(content)
+    except Exception, e:
+        print "get product buy info exception:", e
+
+    return summary, html_content, buy_url
 
 
 def news_spider():
@@ -136,13 +169,13 @@ def news_spider():
         CREATE_COMMAND = 'CREATE  TABLE  IF NOT EXISTS "news" ("id" INTEGER PRIMARY KEY  NOT NULL  UNIQUE , "create_time" TEXT, "title" TEXT, "excerpt" TEXT, "status" INTEGER, "comment_status" INTEGER, "thumbnails" TEXT, "source" TEXT, "cat_id" INTEGER, "comment_count" INTEGER, "like_count" INTEGER, "weights" INTEGER)'
         db.execute(CREATE_COMMAND)
 
-        CREATE_NEWS_CONTENT_TABEL = 'CREATE TABLE IF NOT EXISTS "news_content" ("id" INTEGER PRIMARY KEY  NOT NULL  UNIQUE, "content" TEXT)'
+        CREATE_NEWS_CONTENT_TABEL = 'CREATE TABLE IF NOT EXISTS "news_content" ("id" INTEGER PRIMARY KEY  NOT NULL  UNIQUE, "summary" TEXT, "content" TEXT, "store_url" TEXT)'
         db.execute(CREATE_NEWS_CONTENT_TABEL)
 
         INSERT_COMMAND = "insert into news values (?,?,?,?,?,?,?,?,?,?,?,?)"
-        INSERT_NEWS_CONTENT_COMMAND = "insert into news_content values (?,?)"
+        INSERT_NEWS_CONTENT_COMMAND = "insert into news_content values (?,?,?,?)"
 
-        index = 2
+        index = 1
         url_format = "http://store.baidu.com/news/api/list?pn=%%d&limit=%d&_=%%s"%quota
         while True:
             url = url_format%(index, str(int(time.time()*100)))
@@ -157,10 +190,11 @@ def news_spider():
                         print "insert product info exception:", e
 
                     print "get news content", news.get_id()
-                    news_content = get_news_content(news.get_id())
+                    summary, news_content, buy_url = get_news_content(news.get_id())
+
                     time.sleep(0.1)
                     # print news_content
-                    db.execute(INSERT_NEWS_CONTENT_COMMAND, (news.get_id(), news_content))
+                    db.execute(INSERT_NEWS_CONTENT_COMMAND, (news.get_id(), summary, news_content, buy_url))
                     # print "insert new content"
 
                 print "handle", len(news_list)
@@ -170,7 +204,7 @@ def news_spider():
                 print "Handle", url, "exception", e
 
             index += 1
-
+            db.commit()
             time.sleep(1)
 
     except Exception, e:
@@ -232,12 +266,7 @@ if __name__ == "__main__":
     reload(sys)
     sys.setdefaultencoding('utf-8')
     news_spider()
-    # get_news_content(1)
-    # re_test(3694)
-    # fp = open("cache/html/3694.html", "rb")
-    # print fp.readline()
-    # print str(int(time.time()*100))
-
+    # _get_product_buy_info("")
 
 
 

@@ -1,7 +1,12 @@
 #encoding=utf-8
 from __future__ import unicode_literals
 
+import sys
+import re
+import sqlite3
+
 from DownloadManager import *
+from utils import *
 
 class ProductInfo:
 
@@ -75,6 +80,9 @@ class ProductInfo:
         self.adjust_score = infos.get("adjust_score", 0)
         self.product_thumbnail = infos.get("product_thumbnail", [])
 
+        cache_dir = os.path.join("cache", "product")
+        self.html_cache_dir = os.path.join(cache_dir, "html")
+
     def downloadImg(self):
         print "开始下载", self.product_name
         if len(self.product_cover_img) > 0:
@@ -82,6 +90,96 @@ class ProductInfo:
 
         for i in self.product_thumbnail:
             downloadFile(i, str(self.product_id))
+
+    def downloadHtml(self, db=None):
+        print "开始下载产品网页", self.product_name
+        url = "http://store.baidu.com/product/view/%s.html"%str(self.product_id)
+        cache_file_name = "%s.html"%str(self.product_id)
+        # requestUrlContent(url, self.html_cache_dir, cache_file_name)
+
+        content = ""
+        try:
+            content = open(os.path.join(self.html_cache_dir, cache_file_name), 'rb').read()
+        except Exception, e:
+            print e
+
+        product_intro = "" # 商品介绍
+
+        # product intro
+        try:
+            product_intro_pattern = r'<div class=\"product-intro\">[\s\S]*?</div>'
+            pattern = re.compile(product_intro_pattern)
+
+            match = re.search(pattern, content)
+            if match:
+                product_intro = match.group()
+                product_intro = unicode(product_intro, "utf-8")
+                product_intro = product_intro[product_intro.index(">")+1:product_intro.rindex("</div>")]
+        except Exception, e:
+            print "get product intro error:", e
+        
+        product_detail = ""
+        # product detail
+        try:
+            product_detail_pattern = r'<div class=\"product-detail\">[\s\S]*?</div>'
+            pattern = re.compile(product_detail_pattern)
+
+            match = re.search(pattern, content)
+            if match:
+                product_detail = match.group()
+                product_detail = unicode(product_detail, "utf-8")
+        except Exception, e:
+            print "get product detail error:", e
+
+        # 获取product thumbnails
+        product_thumbnails = []
+        try:
+            product_thumbnails_pattern = r'<div class=\"wrap clearfix\">[\s\S]*?</div>'
+            pattern = re.compile(product_thumbnails_pattern)
+
+            match = re.search(pattern, content)
+            if match:
+                product_thumbnails_info = match.group()
+                product_thumbnails_info = unicode(product_thumbnails_info, "utf-8")
+
+                thumbnails_pattern = r'http\:\/\/[\s\S]*?\"'
+                pattern = re.compile(thumbnails_pattern)
+                match = re.findall(thumbnails_pattern, product_thumbnails_info)
+                if match:
+                    product_thumbnails = map(lambda x: x[:-1], match) 
+
+        except Exception, e:
+            print "get product thumbnails error:", e
+
+        # buy url
+        buy_url = ""
+        try:
+            buy_url_pattern = r'<div class=\"buy\">[\s\S]*?</div>'
+            pattern = re.compile(buy_url_pattern)
+
+            match = re.search(pattern, content)
+            if match:
+                buy_url_detail = match.group()
+                buy_url_detail = unicode(buy_url_detail, "utf-8")
+
+                http_pattern = r'http\:\/\/[\s\S]*?\"'
+                pattern = re.compile(http_pattern)
+                match = re.search(http_pattern, buy_url_detail)
+                if match:
+                    buy_url = match.group().strip()
+        except Exception, e:
+            print "get buy url error:", e
+
+        if db:
+            CREATE_PRODUCT_VIEW_TABLE = 'CREATE TABLE IF NOT EXISTS "products_view" ("product_id" INTEGER PRIMARY KEY  NOT NULL  UNIQUE, "product_intro" TEXT, "product_detail" TEXT, "product_thumbnails" TEXT, "buy_url" TEXT )'
+            try:
+                db.execute(CREATE_PRODUCT_VIEW_TABLE)
+
+                INSERT_COMMAND = "insert into products_view values (?,?,?,?,?)"
+                db.execute(INSERT_COMMAND, (self.product_id, product_intro, product_detail, str(product_thumbnails), buy_url))
+                db.commit()
+            except Exception, e:
+                print "insert product view error:", e
 
     def toTuple(self):
         return (
@@ -106,5 +204,8 @@ class ProductInfo:
 
 
 if __name__ == "__main__":
-    p = ProductInfo(None)
-    print p.toTuple()
+    reload(sys)
+    sys.setdefaultencoding('utf-8')
+    db = sqlite3.connect("store.sqlite")
+    p = ProductInfo({"product_id":2216})
+    print p.downloadHtml(db)
