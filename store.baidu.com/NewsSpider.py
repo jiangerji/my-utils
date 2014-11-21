@@ -67,7 +67,7 @@ class NewsInfo:
             self.like_count,
             self.weights)
 
-    def downloadContent(self):
+    def downloadImg(self):
         # 下载thumbnail
 
         # 下载网页
