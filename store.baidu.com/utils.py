@@ -75,6 +75,9 @@ def insertIntoAssets(cursor, title):
 CONTENT_ATTRIBS = '{"show_title":"","link_titles":"","show_intro":"","show_category":"","link_category":"","show_parent_category":"","link_parent_category":"","show_author":"","link_author":"","show_create_date":"","show_modify_date":"","show_publish_date":"","show_item_navigation":"","show_icons":"","show_print_icon":"","show_email_icon":"","show_vote":"","show_hits":"","show_noauth":"","urls_position":"","alternative_readmore":"","article_layout":"","show_related_article":"","show_related_heading":"","related_heading":"","show_related_type":"","show_related_featured":"","related_image_size":"","related_orderby":"","show_publishing_options":"","show_article_options":"","show_urls_images_backend":"","show_urls_images_frontend":"","tz_portfolio_redirect":"","show_attachments":"","show_image":"","tz_use_image_hover":"","tz_image_timeout":"","portfolio_image_size":"","portfolio_image_featured_size":"","detail_article_image_size":"","show_image_gallery":"","detail_article_image_gallery_size":"","image_gallery_slideshow":"","show_arrows_image_gallery":"","show_controlNav_image_gallery":"","image_gallery_pausePlay":"","image_gallery_pauseOnAction":"","image_gallery_pauseOnHover":"","image_gallery_useCSS":"","image_gallery_slide_direction":"","image_gallery_animation":"","image_gallery_animSpeed":"","image_gallery_animation_duration":"","show_video":"","video_width":"","video_height":"","tz_show_gmap":"","tz_gmap_width":"","tz_gmap_height":"","tz_gmap_mousewheel_zoom":"","tz_gmap_zoomlevel":"","tz_gmap_latitude":"","tz_gmap_longitude":"","tz_gmap_address":"","tz_gmap_custom_tooltip":"","useCloudZoom":"","article_image_zoom_size":"","zoomWidth":"","zoomHeight":"","position":"","adjustX":"","adjustY":"","tint":"","tintOpacity":"","lensOpacity":"","softFocus":"","smoothMove":"","showTitle":"","titleOpacity":"","show_comment":"","tz_comment_type":"","tz_show_count_comment":"","disqusSubDomain":"","disqusApiSecretKey":"","disqusDevMode":"","show_twitter_button":"","show_facebook_button":"","show_google_button":"","show_extra_fields":"","field_show_type":""}'
 
 CONTENT_INSERT_COMMAND = 'insert into erji_content (asset_id, title, alias, introtext, `fulltext`, state, catid, created, created_by, created_by_alias, modified, modified_by, checked_out, checked_out_time, publish_up, publish_down, images, urls, attribs, version, ordering, metakey, metadesc, access, hits, metadata, featured, language, xreference) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+
+CREATED_OWNER = None
+
 def insertIntoContent(cursor, _asset_id, _title, _introtext, _fulltext):
     """
     _asset_id: 由insertIntoAssets返回的值
@@ -82,6 +85,10 @@ def insertIntoContent(cursor, _asset_id, _title, _introtext, _fulltext):
     _introtext: 文章的简要介绍
     _fulltext: 文章全部内容
     """
+    global CREATED_OWNER
+    if CREATED_OWNER == None:
+        cursor.execute('select id from erji_users where username="jiangerji"')
+        CREATED_OWNER = cursor.fetchone()[0]
 
     asset_id = _asset_id
     title = _title
@@ -91,11 +98,11 @@ def insertIntoContent(cursor, _asset_id, _title, _introtext, _fulltext):
     state = 1
     catid = 8
     created = time.strftime("%Y-%m-%d %H:%M:%S")
-    created_by = 732
+    created_by = CREATED_OWNER
     created_by_alias = ""
     modified = time.strftime("%Y-%m-%d %H:%M:%S")
-    modified_by = 732
-    checked_out = 732
+    modified_by = CREATED_OWNER
+    checked_out = CREATED_OWNER
     checked_out_time = time.strftime("%Y-%m-%d %H:%M:%S")
     publish_up = "0000-00-00 00:00:00"
     publish_down = "0000-00-00 00:00:00"
@@ -132,6 +139,7 @@ def downloadNewsThumbnails(_id, url):
 
     if not os.path.isfile(thumbnails_path):
         return None
+
 
     # 处理成5种尺寸, 按宽度自适应
     # XS:100, S:200, M:400, L:600, XL:900
@@ -234,7 +242,7 @@ def insertArtical(cursor):
         insert_xref_content(cursor, content_id, images)
 
         count += 1
-        if count >= 100:
+        if count >= 1:
             break
 
 def MySQLTest():
